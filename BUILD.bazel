@@ -10,5 +10,5 @@ filegroup(
         "gradle/**",
         "src/**",
     ]),
-    visibility = ["//application/velocity-plugin:__pkg__"],
+    visibility = ["//visibility:public"],
 )
