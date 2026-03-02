@@ -4,51 +4,18 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.serialization)
     alias(libs.plugins.dokka)
-    alias(libs.plugins.androidLibrary)
-    alias(libs.plugins.mavenPublish)
 }
 
 repositories {
     mavenCentral()
-    google()
     gradlePluginPortal()
-}
-
-enum class HttpClientType {
-    WIN_HTTP,
-    CIO;
 }
 
 kotlin {
     explicitApi()
 
-    androidTarget {
-        publishLibraryVariants("debug","release")
-    }
-
     jvmToolchain(17)
     jvm()
-
-    // Linux
-    linuxX64()
-
-    // MacOS
-    macosX64()
-    macosArm64()
-
-    // iOS
-    iosArm64()
-    iosX64()
-    iosSimulatorArm64()
-
-    // Windows
-    mingwX64()
-
-    // Android
-    androidNativeArm32()
-    androidNativeArm64()
-    androidNativeX64()
-    androidNativeX86()
 
     compilerOptions {
         optIn.add("kotlin.time.ExperimentalTime")
@@ -95,125 +62,11 @@ kotlin {
             }
         }
 
-        val winHTTPMain by creating {
-            dependsOn(commonMain.get())
-            dependencies {
-                api(libs.ktor.client.winhttp)
-            }
-        }
-
-        val winHTTPTest by creating {
-            dependsOn(commonTest.get())
-            dependencies {
-                implementation(libs.ktor.client.winhttp)
-            }
-        }
-
-
-        fun KotlinSourceSet.configureDependencies(
-            test: Boolean = false,
-            httpClientType: HttpClientType = HttpClientType.CIO,
-        ) {
-            if (httpClientType == HttpClientType.WIN_HTTP) {
-                if (test) {
-                    this.dependsOn(winHTTPTest)
-                } else this.dependsOn(winHTTPMain)
-            } else if (test) {
-                this.dependsOn(cioTest)
-            } else this.dependsOn(cioMain)
-        }
-
-
-        getByName("jvmMain").configureDependencies()
-        getByName("jvmTest").configureDependencies(test = true)
-
-        getByName("linuxX64Main").configureDependencies()
-        getByName("linuxX64Test").configureDependencies(test = true)
-
-        getByName("macosX64Main").configureDependencies()
-        getByName("macosX64Test").configureDependencies(test = true)
-
-        getByName("macosArm64Main").configureDependencies()
-        getByName("macosArm64Test").configureDependencies(test = true)
-
-        getByName("iosArm64Main").configureDependencies()
-        getByName("iosArm64Test").configureDependencies(test = true)
-
-        getByName("iosSimulatorArm64Main").configureDependencies()
-        getByName("iosSimulatorArm64Test").configureDependencies(test = true)
-
-        getByName("iosX64Main").configureDependencies()
-        getByName("iosX64Test").configureDependencies(test = true)
-
-        getByName("macosArm64Main").configureDependencies()
-        getByName("macosArm64Test").configureDependencies(test = true)
-
-        getByName("mingwX64Main").configureDependencies(httpClientType = HttpClientType.WIN_HTTP)
-        getByName("mingwX64Test").configureDependencies(test = true, httpClientType = HttpClientType.WIN_HTTP)
-
-
-        getByName("androidMain").configureDependencies()
-        getByName("androidUnitTest").configureDependencies(test = true)
-
-        getByName("androidNativeArm32Main").configureDependencies()
-        getByName("androidNativeArm32Test").configureDependencies(test = true)
-
-        getByName("androidNativeArm64Main").configureDependencies()
-        getByName("androidNativeArm64Test").configureDependencies(test = true)
-
-        getByName("androidNativeX64Main").configureDependencies()
-        getByName("androidNativeX64Test").configureDependencies(test = true)
-
-        getByName("androidNativeX86Main").configureDependencies()
-        getByName("androidNativeX86Test").configureDependencies(test = true)
+        getByName("jvmMain").dependsOn(cioMain)
+        getByName("jvmTest").dependsOn(cioTest)
     }
 }
 
-android {
-    namespace = "io.github.agrevster.pocketbaseKotlin"
-    compileSdk = 34
-    defaultConfig {
-        minSdk = 21
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_18
-        targetCompatibility = JavaVersion.VERSION_18
-    }
-}
-
-/// MAVEN PUBLISHING
-
-mavenPublishing {
-    publishToMavenCentral()
-    signAllPublications()
-}
-
-tasks.register("publishMac") {
-    group = "publishing"
-    dependsOn(tasks.named("publishIosArm64PublicationToMavenCentralRepository"))
-    dependsOn(tasks.named("publishIosSimulatorArm64PublicationToMavenCentralRepository"))
-    dependsOn(tasks.named("publishIosX64PublicationToMavenCentralRepository"))
-    dependsOn(tasks.named("publishMacosX64PublicationToMavenCentralRepository"))
-    dependsOn(tasks.named("publishMacosArm64PublicationToMavenCentralRepository"))
-}
-
-tasks.register("publishWindows") {
-    group = "publishing"
-    dependsOn(tasks.named("publishMingwX64PublicationToMavenCentralRepository"))
-}
-
-tasks.register("publishLinux") {
-    group = "publishing"
-    dependsOn(tasks.named("publishLinuxX64PublicationToMavenCentralRepository"))
-}
-
-//THIS MUST BE DONE LOCALLY YOU NEED TO SIGN IN TO DOWNLOAD AN ANDROID SDK SO WE CANNOT DO THIS WITH GITHUB ACTIONS
-tasks.register("publishCommon") {
-    group = "publishing"
-    dependsOn(tasks.named("publishAndroidReleasePublicationToMavenCentralRepository"))
-    dependsOn(tasks.named("publishJvmPublicationToMavenCentralRepository"))
-    dependsOn(tasks.named("publishKotlinMultiplatformPublicationToMavenCentralRepository"))
-}
 dokka {
     moduleName.set("Pocketbase Kotlin")
 }
