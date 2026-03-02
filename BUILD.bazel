@@ -1,0 +1,14 @@
+# Exports pocketbase-kotlin sources for use as a Gradle composite build
+# inside the velocity-plugin Bazel sandbox.
+
+filegroup(
+    name = "sources",
+    srcs = glob([
+        "build.gradle.kts",
+        "settings.gradle.kts",
+        "gradle.properties",
+        "gradle/**",
+        "src/**",
+    ]),
+    visibility = ["//application/velocity-plugin:__pkg__"],
+)

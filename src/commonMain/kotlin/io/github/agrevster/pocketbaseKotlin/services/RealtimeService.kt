@@ -9,7 +9,7 @@ import io.ktor.client.request.*
 import io.ktor.http.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.collect
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 
@@ -61,7 +61,7 @@ public class RealtimeService(client: PocketbaseClient) : BaseService(client) {
     public var clientId: String? = null
     	private set
     private var connected: Boolean = false
-    private var connection = MutableSharedFlow<MessageData>()
+    private var connection = MutableSharedFlow<MessageData>(extraBufferCapacity = 64)
     private val subscriptions: MutableSet<String> = mutableSetOf()
     private val sseCoroutines: MutableSet<Job> = mutableSetOf()
 
@@ -94,7 +94,7 @@ public class RealtimeService(client: PocketbaseClient) : BaseService(client) {
                 connected = true
                 while (isActive) {
                     client.httpClient.sse(path = "/api/realtime") {
-                        incoming.collectLatest { event ->
+                        incoming.collect { event ->
                             if (clientId == null || event.id != clientId) {
                                 clientId = event.id
                                 sendSubscribeRequest()
@@ -130,7 +130,7 @@ public class RealtimeService(client: PocketbaseClient) : BaseService(client) {
         if (!connected) throw PocketbaseException("You must connect to the SSE client first!")
         coroutineScope {
             val job = launch {
-                connection.collectLatest { event ->
+                connection.collect { event ->
                     callback(event)
                     coroutineContext.ensureActive()
                 }
