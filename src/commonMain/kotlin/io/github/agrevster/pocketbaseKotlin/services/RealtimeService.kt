@@ -92,27 +92,42 @@ public class RealtimeService(client: PocketbaseClient) : BaseService(client) {
             val job = launch {
                 if (connected) throw PocketbaseException("You are already connected to the realtime service!")
                 connected = true
+                var reconnectDelay = 1000L
+                val maxReconnectDelay = 30_000L
                 while (isActive) {
-                    client.httpClient.sse(path = "/api/realtime") {
-                        incoming.collect { event ->
-                            if (clientId == null || event.id != clientId) {
-                                clientId = event.id
-                                sendSubscribeRequest()
-                            }
-                            //If there is data emit it, else, assume it is a new connection attempt
-                            try {
-                                val jsonData = unknownKeysJson.decodeFromString<JsonObject>(event.data!!)
-                                connection.emit(
-                                    MessageData(
-                                        RealtimeActionType.valueOf(
-                                            jsonData["action"].toString().removeSurrounding("\"").uppercase()
-                                        ), jsonData["record"]
+                    try {
+                        client.httpClient.sse(path = "/api/realtime") {
+                            // Connection succeeded — reset backoff
+                            reconnectDelay = 1000L
+                            incoming.collect { event ->
+                                if (clientId == null || event.id != clientId) {
+                                    clientId = event.id
+                                    sendSubscribeRequest()
+                                }
+                                //If there is data emit it, else, assume it is a new connection attempt
+                                try {
+                                    val jsonData = unknownKeysJson.decodeFromString<JsonObject>(event.data!!)
+                                    connection.emit(
+                                        MessageData(
+                                            RealtimeActionType.valueOf(
+                                                jsonData["action"].toString().removeSurrounding("\"").uppercase()
+                                            ), jsonData["record"]
+                                        )
                                     )
-                                )
-                            } catch (e: Exception) {
-                                connection.emit(MessageData(RealtimeActionType.CONNECT, null))
+                                } catch (e: Exception) {
+                                    connection.emit(MessageData(RealtimeActionType.CONNECT, null))
+                                }
                             }
                         }
+                    } catch (_: CancellationException) {
+                        throw CancellationException()
+                    } catch (e: Exception) {
+                        // Connection failed or dropped — invalidate clientId so
+                        // subscriptions are re-sent after the next successful connect.
+                        clientId = null
+                        println("PocketBase SSE connection lost: ${e.message}. Reconnecting in ${reconnectDelay}ms...")
+                        delay(reconnectDelay)
+                        reconnectDelay = (reconnectDelay * 2).coerceAtMost(maxReconnectDelay)
                     }
                 }
             }
